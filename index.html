@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NdaliWebpark (Pty) Ltd - Corporate Reporting Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS for creating XLSX files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- FileSaver.js for downloading the file -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            padding: 2.5rem;
+            background-color: #ffffff;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+        .response-group {
+            border-left: 4px solid #4a5568;
+            padding-left: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+        .message-box {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+        }
+        .message-box.success {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        .message-box.error {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .message-box.info {
+            background-color: #bfdbfe;
+            color: #1e40af;
+        }
+        .table-striped tbody tr:nth-child(odd) {
+            background-color: #f9fafb;
+        }
+        .hidden {
+            display: none;
+        }
+        .decline-checkbox-container {
+            display: flex;
+            align-items: center;
+        }
+        .decline-checkbox {
+            appearance: none;
+            width: 1.25rem;
+            height: 1.25rem;
+            border-radius: 0.25rem;
+            border: 1px solid #d1d5db;
+            position: relative;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .decline-checkbox:checked {
+            background-color: #10b981;
+            border-color: #10b981;
+        }
+        .decline-checkbox:checked::before {
+            content: '\2713';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 1rem;
+        }
+        .decline-checkbox:not(:checked) {
+            background-color: #f87171;
+            border-color: #f87171;
+        }
+        .decline-checkbox:not(:checked)::before {
+            content: '\2717';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+        /* Style for disabled inputs */
+        input:disabled, textarea:disabled, button:disabled {
+            cursor: not-allowed;
+            background-color: #e5e7eb;
+            color: #9ca3af;
+        }
+        input[type="radio"]:disabled, input[type="checkbox"]:disabled {
+            opacity: 0.5;
+        }
+        /* Style for print view to hide non-essential elements */
+        @media print {
+            body > .container > :not(.print-visible) {
+                display: none !important;
+            }
+            body {
+                background-color: #fff;
+            }
+            .container {
+                box-shadow: none;
+                margin: 0;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ========================================================================= -->
+    <!-- M A I N   C O N T A I N E R -->
+    <!-- ========================================================================= -->
+    <div class="container">
+        <!-- Main header for all views -->
+        <div id="header-container" class="mb-8 flex justify-between items-center hidden">
+            <h2 id="user-title" class="text-xl font-bold text-gray-800"></h2>
+            <button onclick="logout()" class="px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition-transform transform hover:scale-105">
+                Logout
+            </button>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- L O G I N   V I E W -->
+        <!-- ========================================================================= -->
+        <div id="login-view" class="view">
+            <h1 class="text-4xl font-bold text-center text-gray-800 mb-2">NdaliWebpark (Pty) Ltd</h1>
+            <p class="text-center text-gray-500 mb-8">Please log in to continue.</p>
+
+            <div id="login-message-box" class="message-box error hidden"></div>
+
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Position (Username)</label>
+                    <input type="text" id="username" name="username" class="w-full p-2.5 text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., officer, supervisor, manager" required>
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="password" name="password" class="w-full p-2.5 text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500" value="123456" required>
+                </div>
+                <div class="flex justify-center">
+                    <button type="submit" class="w-full sm:w-auto px-6 py-3 bg-blue-800 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-transform transform hover:scale-105">
+                        Log In
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- O F F I C E R   V I E W -->
+        <!-- ========================================================================= -->
+        <div id="officer-view" class="view hidden">
+            <div id="officer-message-box" class="message-box hidden"></div>
+            <p class="text-center text-gray-500 mb-8" id="officer-status-message"></p>
+
+            <form id="officer-form">
+                <div class="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="company-name" class="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                        <input type="text" id="company-name" name="company-name" class="w-full p-2.5 text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300" value="NdaliWebpark (Pty) Ltd" readonly>
+                    </div>
+                    <div>
+                        <label for="document-title" class="block text-sm font-medium text-gray-700 mb-1">Document Title</label>
+                        <input type="text" id="document-title" name="document-title" class="w-full p-2.5 text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300" value="Internal Compliance Report" required>
+                    </div>
+                </div>
+                
+                <!-- Question 1 -->
+                <div class="response-group">
+                    <p class="text-xl text-gray-700 font-semibold mb-3">Is the project timeline feasible?</p>
+                    <div class="flex items-center space-x-6 mb-4">
+                        <div class="flex items-center">
+                            <input id="q1-noted" type="radio" value="Noted" name="q1_response" class="w-4 h-4 text-green-700 bg-gray-100 border-gray-300 focus:ring-green-500 rounded-full" required>
+                            <label for="q1-noted" class="ml-2 text-sm font-medium text-gray-900">Noted</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input id="q1-not-noted" type="radio" value="Not Noted" name="q1_response" class="w-4 h-4 text-red-700 bg-gray-100 border-gray-300 focus:ring-red-500 rounded-full">
+                            <label for="q1-not-noted" class="ml-2 text-sm font-medium text-gray-900">Not Noted</label>
+                        </div>
+                    </div>
+                    <label for="q1-comments" class="block text-sm font-medium text-gray-700 mb-1">Comments (optional):</label>
+                    <textarea id="q1-comments" name="q1_comments" rows="3" class="w-full p-2.5 text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="Add your comments here..."></textarea>
+                    <p id="q1-supervisor-decline-reason" class="text-sm font-semibold text-red-600 mt-2 hidden"></p>
+                </div>
+                
+                <!-- Question 2 -->
+                <div class="response-group">
+                    <p class="text-xl text-gray-700 font-semibold mb-3">Are all required documents in order?</p>
+                    <div class="flex items-center space-x-6 mb-4">
+                        <div class="flex items-center">
+                            <input id="q2-noted" type="radio" value="Noted" name="q2_response" class="w-4 h-4 text-green-700 bg-gray-100 border-gray-300 focus:ring-green-500 rounded-full" required>
+                            <label for="q2-noted" class="ml-2 text-sm font-medium text-gray-900">Noted</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input id="q2-not-noted" type="radio" value="Not Noted" name="q2_response" class="w-4 h-4 text-red-700 bg-gray-100 border-gray-300 focus:ring-red-500 rounded-full">
+                            <label for="q2-not-noted" class="ml-2 text-sm font-medium text-gray-900">Not Noted</label>
+                        </div>
+                    </div>
+                    <label for="q2-comments" class="block text-sm font-medium text-gray-700 mb-1">Comments (optional):</label>
+                    <textarea id="q2-comments" name="q2_comments" rows="3" class="w-full p-2.5 text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500" placeholder="Add your comments here..."></textarea>
+                    <p id="q2-supervisor-decline-reason" class="text-sm font-semibold text-red-600 mt-2 hidden"></p>
+                </div>
+                
+                <!-- Officer Signature -->
+                <div class="mb-6">
+                    <label for="officer-signature" class="block text-sm font-medium text-gray-700 mb-1">Your Signature</label>
+                    <input type="text" id="officer-signature" name="officer-signature" class="w-full p-2.5 text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300" placeholder="Enter your name to sign" required>
+                </div>
+
+                <div class="flex justify-center mt-8">
+                    <button type="submit" class="w-full sm:w-auto px-6 py-3 bg-blue-800 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-transform transform hover:scale-105">
+                        Submit
+                    </button>
+                </div>
+            </form>
+
+            <!-- Submission Preview Table for Officer -->
+            <div id="officer-preview-table-container" class="mt-12 hidden">
+                <h3 class="text-2xl font-semibold text-gray-800 mb-4">Preview of Your Submission</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-300 rounded-lg shadow-sm table-striped">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="py-3 px-4 text-left font-semibold text-gray-700 uppercase tracking-wider">Question</th>
+                                <th class="py-3 px-4 text-left font-semibold text-gray-700 uppercase tracking-wider">Your Response</th>
+                                <th class="py-3 px-4 text-left font-semibold text-gray-700 uppercase tracking-wider">Your Comments</th>
+                                <th class="py-3 px-4 text-left font-semibold text-gray-700 uppercase tracking-wider">Supervisor's Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody id="officer-preview-body">
+                            <!-- Report rows will be dynamically added here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- S U P E R V I S O R   V I E W -->
+        <!-- ========================================================================= -->
+        <div id="supervisor-view" class="view hidden">
+            <p class="text-center text-gray-500 mb-8" id="supervisor-status-message"></p>
+            
+            <div id="supervisor-message-box" class="message-box info hidden"></div>
+
+            <div id="supervisor-review-container">
+                <!-- Question 1 - Supervisor Review -->
+                <div class="response-group">
+                    <p class="text-xl text-gray-700 font-semibold mb-3">Is the project timeline feasible?</p>
+                    <div class="flex items-center space-x-6 mb-2">
+                        <span class="text-sm font-medium text-gray-900">Officer's Response: </span>
+                        <span id="sup-q1-response" class="text-sm font-semibold text-gray-700"></span>
+                    </div>
+                    <div class="flex items-center space-x-6 mb-4">
+                        <span class="text-sm font-medium text-gray-900">Officer's Comments: </span>
+                        <span id="sup-q1-comments" class="text-sm font-medium text-gray-600"></span>
+                    </div>
+                    <div class="decline-checkbox-container mb-2">
+                        <input type="checkbox" id="sup-q1-check" class="decline-checkbox" checked>
+                        <label for="sup-q1-check" class="ml-2 text-sm font-medium text-gray-900">This response is satisfactory</label>
+                    </div>
+                    <textarea id="sup-q1-decline-reason" rows="2" class="w-full p-2.5 text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-red-500 focus:border-red-500 hidden" placeholder="Reason for decline..." required></textarea>
+                </div>
+
+                <!-- Question 2 - Supervisor Review -->
+                <div class="response-group">
+                    <p class="text-xl text-gray-700 font-semibold mb-3">Are all required documents in order?</p>
+                    <div class="flex items-center space-x-6 mb-2">
+                        <span class="text-sm font-medium text-gray-900">Officer's Response: </span>
+                        <span id="sup-q2-response" class="text-sm font-semibold text-gray-700"></span>
+                    </div>
+                    <div class="flex items-center space-x-6 mb-4">
+                        <span class="text-sm font-medium text-gray-900">Officer's Comments: </span>
+                        <span id="sup-q2-comments" class="text-sm font-medium text-gray-600"></span>
+                    </div>
+                    <div class="decline-checkbox-container mb-2">
+                        <input type="checkbox" id="sup-q2-check" class="decline-checkbox" checked>
+                        <label for="sup-q2-check" class="ml-2 text-sm font-medium text-gray-900">This response is satisfactory</label>
+                    </div>
+                    <textarea id="sup-q2-decline-reason" rows="2" class="w-full p-2.5 text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-red-500 focus:border-red-500 hidden" placeholder="Reason for decline..." required></textarea>
+                </div>
+
+                <!-- Supervisor Signature -->
+                <div class="mb-6">
+                    <label for="supervisor-signature" class="block text-sm font-medium text-gray-700 mb-1">Your Signature</label>
+                    <input type="text" id="supervisor-signature" name="supervisor-signature" class="w-full p-2.5 text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300" placeholder="Enter your name to sign" required>
+                </div>
+
+                <div class="flex justify-center mt-8 space-x-4">
+                    <button onclick="declineReport()" id="decline-btn" class="px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-transform transform hover:scale-105">
+                        Decline and Return to Officer
+                    </button>
+                    <button onclick="approveReport()" id="approve-btn" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-transform transform hover:scale-105 hidden">
+                        Approve and Send to Manager
+                    </button>
+                </div>
+            </div>
+
+            <!-- Supervisor Completed Review View -->
+            <div id="supervisor-review-completed-container" class="mt-12 hidden">
+                <h3 class="text-2xl font-semibold text-gray-800 mb-4">Review Complete</h3>
+                <p id="supervisor-completed-status" class="mb-4 text-center"></p>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-300 rounded-lg shadow-sm table-striped">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="py-3 px-4 text-left font-semibold text-gray-700 uppercase tracking-wider">Question</th>
+                                <th class="py-3 px-4 text-left font-semibold text-gray-700 uppercase tracking-wider">Officer's Response</th>
+                                <th class="py-3 px-4 text-left font-semibold text-gray-700 uppercase tracking-wider">Officer's Comments</th>
+                                <th class="py-3 px-4 text-left font-semibold text-gray-700 uppercase tracking-wider">Supervisor's Decision</th>
+                            </tr>
+                        </thead>
+                        <tbody id="supervisor-completed-body">
+                            <!-- Report rows will be dynamically added here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- M A N A G E R   V I E W -->
+        <!-- ========================================================================= -->
+        <div id="manager-view" class="view hidden">
+            <p class="text-center text-gray-500 mb-8" id="manager-status-message"></p>
+
+            <!-- Report Title and Compiled By -->
+            <div class="mb-8 print-visible">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2" id="manager-report-title"></h1>
+                <p class="text-md text-gray-600" id="manager-report-compiled"></p>
+                <p class="text-md text-gray-600" id="manager-report-date-compiled"></p>
+                <p class="text-md text-gray-600" id="manager-report-signature-compiler"></p>
+                <p class="text-md text-gray-600" id="manager-report-checked"></p>
+                <p class="text-md text-gray-600" id="manager-report-date-checked"></p>
+                <p class="text-md text-gray-600" id="manager-report-signature-checker"></p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4 mb-6 download-buttons print-visible">
+                <button onclick="downloadXLSX()" class="px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg shadow-md hover:bg-gray-800 text-center transition-transform transform hover:scale-105">
+                    Download XLSX
+                </button>
+                <button onclick="window.print()" class="px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition-transform transform hover:scale-105">
+                    Print PDF
+                </button>
+            </div>
+            
+            <div id="download-xlsx-msg" class="message-box info hidden"></div>
+            
+            <div class="overflow-x-auto print-visible">
+                <table class="min-w-full bg-white border border-gray-300 rounded-lg shadow-sm table-striped">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="py-3 px-4 text-left font-semibold text-gray-700 uppercase tracking-wider">Item No.</th>
+                            <th class="py-3 px-4 text-left font-semibold text-gray-700 uppercase tracking-wider">Description</th>
+                            <th class="py-3 px-4 text-left font-semibold text-gray-700 uppercase tracking-wider">Compliance</th>
+                            <th class="py-3 px-4 text-left font-semibold text-gray-700 uppercase tracking-wider">Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody id="manager-report-body">
+                        <!-- Report rows will be dynamically added here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === GLOBAL STATE ===
+        // This object acts as our "local database" for the report.
+        let reportData = {
+            status: 'blank',
+            companyName: 'NdaliWebpark (Pty) Ltd',
+            documentTitle: 'Internal Compliance Report',
+            compiler: 'Sabelo Dlamini',
+            checker: 'Thandeka Mkhonta',
+            dateOfCompilation: '',
+            dateOfChecking: '',
+            signatureCompiler: '',
+            signatureChecker: '',
+            officerResponses: {
+                q1_response: '',
+                q1_comments: '',
+                q2_response: '',
+                q2_comments: '',
+            },
+            supervisorReasons: {},
+        };
+        let currentUserRole = 'login'; // Tracks the current logged-in user
+
+        // NdaliWebpark (Pty) Ltd User Data
+        const users = {
+            'officer': { name: 'Sabelo Dlamini', email: 'sabelo.dlamini@ndaliwebpark.com', position: 'Officer' },
+            'supervisor': { name: 'Thandeka Mkhonta', email: 'thandeka.mkhonta@ndaliwebpark.com', position: 'Supervisor' },
+            'manager': { name: 'Nomalanga Fakudze', email: 'nomalanga.fakudze@ndaliwebpark.com', position: 'Manager' },
+        };
+        
+        // === UTILITY FUNCTIONS ===
+        const getFormattedDate = () => {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        // === VIEW CONTROL ===
+        // A simple function to show the correct view and hide all others.
+        const showView = (role) => {
+            console.log(`[View Change] Started: Switching view to "${role}".`);
+            document.querySelectorAll('.view').forEach(view => {
+                view.classList.add('hidden');
+            });
+            document.getElementById(role + '-view').classList.remove('hidden');
+
+            const header = document.getElementById('header-container');
+            const userTitle = document.getElementById('user-title');
+            
+            if (role !== 'login') {
+                header.classList.remove('hidden');
+                userTitle.textContent = `${users[role].position} View`;
+            } else {
+                header.classList.add('hidden');
+            }
+            console.log(`[View Change] Completed: View is now "${role}".`);
+        };
+
+        // A helper function to display temporary messages.
+        const displayMessage = (elementId, text, type = 'info') => {
+            console.log(`[UI Message] Displaying message: "${text}" with type "${type}".`);
+            const messageBox = document.getElementById(elementId);
+            messageBox.textContent = text;
+            messageBox.className = `message-box ${type}`;
+            messageBox.classList.remove('hidden');
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+                console.log(`[UI Message] Hiding message: "${text}".`);
+            }, 5000); // Hide after 5 seconds
+        };
+
+        // === MAIN UI UPDATE LOGIC ===
+        // This function is the core of the state machine. It updates the UI based on the
+        // current role and the report's status. It's called after every major action.
+        const updateUIBasedOnState = () => {
+            console.log(`[State Update] Started: Updating UI based on state. Current role: ${currentUserRole}, Report status: ${reportData.status}.`);
+            const { status } = reportData;
+            
+            if (currentUserRole === 'officer') {
+                showView('officer');
+                updateOfficerView(status);
+            } else if (currentUserRole === 'supervisor') {
+                showView('supervisor');
+                updateSupervisorView(status);
+            } else if (currentUserRole === 'manager') {
+                showView('manager');
+                updateManagerView(status);
+            }
+            console.log(`[State Update] Completed: UI has been updated for role ${currentUserRole}.`);
+        };
+
+        // Updates the officer's view based on the report status.
+        const updateOfficerView = (status) => {
+            console.log(`[UI Officer] Started: Updating officer view for status "${status}".`);
+            const form = document.getElementById('officer-form');
+            const previewContainer = document.getElementById('officer-preview-table-container');
+            const statusMessage = document.getElementById('officer-status-message');
+            
+            // Populate form with existing data if available
+            const responses = reportData.officerResponses || {};
+            const q1ResponseEl = document.querySelector(`input[name="q1_response"][value="${responses.q1_response}"]`);
+            if (q1ResponseEl) q1ResponseEl.checked = true;
+            const q2ResponseEl = document.querySelector(`input[name="q2_response"][value="${responses.q2_response}"]`);
+            if (q2ResponseEl) q2ResponseEl.checked = true;
+            document.getElementById('q1-comments').value = responses.q1_comments || '';
+            document.getElementById('q2-comments').value = responses.q2_comments || '';
+            document.getElementById('officer-signature').value = reportData.signatureCompiler || '';
+
+            // Handle supervisor decline reasons
+            const reasons = reportData.supervisorReasons || {};
+            const q1ReasonEl = document.getElementById('q1-supervisor-decline-reason');
+            const q2ReasonEl = document.getElementById('q2-supervisor-decline-reason');
+            
+            const q1ReasonText = reasons.q1_decline || 'N/A';
+            const q2ReasonText = reasons.q2_decline || 'N/A';
+            const q1ReasonColor = q1ReasonText.includes('Approved') ? 'text-green-600' : 'text-red-600';
+            const q2ReasonColor = q2ReasonText.includes('Approved') ? 'text-green-600' : 'text-red-600';
+
+            if (reasons.q1_decline) {
+                q1ReasonEl.textContent = `Supervisor decision: ${reasons.q1_decline}`;
+                q1ReasonEl.className = `text-sm font-semibold mt-2 ${q1ReasonColor}`;
+                q1ReasonEl.classList.remove('hidden');
+            } else {
+                q1ReasonEl.classList.add('hidden');
+            }
+            if (reasons.q2_decline) {
+                q2ReasonEl.textContent = `Supervisor decision: ${reasons.q2_decline}`;
+                q2ReasonEl.className = `text-sm font-semibold mt-2 ${q2ReasonColor}`;
+                q2ReasonEl.classList.remove('hidden');
+            } else {
+                q2ReasonEl.classList.add('hidden');
+            }
+
+            // Update UI based on status
+            if (status === 'submitted' || status === 'approved') {
+                statusMessage.textContent = 'Report submitted. Waiting for supervisor review.';
+                statusMessage.className = 'text-center text-gray-500 mb-8';
+                form.querySelectorAll('input, textarea, button').forEach(el => el.disabled = true);
+                previewContainer.classList.remove('hidden');
+                populatePreviewTable('officer-preview-body', reportData);
+                console.log(`[UI Officer] Pending: Report submitted, awaiting supervisor review. Form disabled.`);
+            } else if (status === 'declined') {
+                statusMessage.textContent = 'Report declined by supervisor. Please review and resubmit.';
+                statusMessage.className = 'message-box error';
+                form.querySelectorAll('input, textarea, button').forEach(el => el.disabled = false);
+                previewContainer.classList.remove('hidden');
+                populatePreviewTable('officer-preview-body', reportData);
+                console.log(`[UI Officer] Pending: Report declined, form re-enabled for edits.`);
+            } else { // 'blank' status
+                statusMessage.textContent = 'Fill out the form and submit your report.';
+                statusMessage.className = 'text-center text-gray-500 mb-8';
+                form.reset();
+                form.querySelectorAll('input, textarea, button').forEach(el => el.disabled = false);
+                previewContainer.classList.add('hidden');
+                document.getElementById('company-name').value = reportData.companyName;
+                console.log(`[UI Officer] Completed: UI is in blank state, ready for new submission.`);
+            }
+        };
+
+        // Updates the supervisor's view based on the report status.
+        const updateSupervisorView = (status) => {
+            console.log(`[UI Supervisor] Started: Updating supervisor view for status "${status}".`);
+            const reviewContainer = document.getElementById('supervisor-review-container');
+            const completedContainer = document.getElementById('supervisor-review-completed-container');
+            const statusMessage = document.getElementById('supervisor-status-message');
+            
+            if (status === 'submitted') {
+                statusMessage.textContent = 'A new report is awaiting your review.';
+                statusMessage.className = 'text-center text-gray-500 mb-8';
+                reviewContainer.classList.remove('hidden');
+                completedContainer.classList.add('hidden');
+                populateSupervisorReview(reportData.officerResponses);
+                checkSupervisorButtons();
+                console.log(`[UI Supervisor] Pending: New report is available for review.`);
+            } else if (status === 'approved' || status === 'declined') {
+                statusMessage.textContent = 'You have completed your review for this report.';
+                statusMessage.className = 'message-box info';
+                reviewContainer.classList.add('hidden');
+                completedContainer.classList.remove('hidden');
+                populateSupervisorCompletedTable();
+                console.log(`[UI Supervisor] Completed: Review is finished, displaying completed table.`);
+            } else {
+                statusMessage.textContent = 'No reports are currently awaiting your review.';
+                statusMessage.className = 'text-center text-gray-500 mb-8';
+                reviewContainer.classList.add('hidden');
+                completedContainer.classList.add('hidden');
+                console.log(`[UI Supervisor] Completed: No reports to review, idle state.`);
+            }
+        };
+
+        // Updates the manager's view based on the report status.
+        const updateManagerView = (status) => {
+            console.log(`[UI Manager] Started: Updating manager view for status "${status}".`);
+            const managerBody = document.getElementById('manager-report-body');
+            const statusMessage = document.getElementById('manager-status-message');
+            
+            if (status === 'approved') {
+                statusMessage.textContent = 'A new report has been approved for your review.';
+                statusMessage.className = 'text-center text-gray-500 mb-8';
+                managerBody.innerHTML = '';
+                document.getElementById('manager-report-title').textContent = reportData.documentTitle;
+                document.getElementById('manager-report-compiled').textContent = `Compiled by: ${reportData.compiler}`;
+                document.getElementById('manager-report-date-compiled').textContent = `Date of Compilation: ${reportData.dateOfCompilation}`;
+                document.getElementById('manager-report-signature-compiler').textContent = `Signature: ${reportData.signatureCompiler}`;
+                document.getElementById('manager-report-checked').textContent = `Checked by: ${reportData.checker}`;
+                document.getElementById('manager-report-date-checked').textContent = `Date of Checking: ${reportData.dateOfChecking}`;
+                document.getElementById('manager-report-signature-checker').textContent = `Signature: ${reportData.signatureChecker}`;
+                populateManagerTable(reportData);
+                console.log(`[UI Manager] Completed: Approved report is displayed.`);
+            } else {
+                statusMessage.textContent = 'No reports are currently approved.';
+                statusMessage.className = 'text-center text-gray-500 mb-8';
+                managerBody.innerHTML = '';
+                document.getElementById('manager-report-title').textContent = '';
+                document.getElementById('manager-report-compiled').textContent = '';
+                document.getElementById('manager-report-checked').textContent = '';
+                document.getElementById('manager-report-date-compiled').textContent = '';
+                document.getElementById('manager-report-date-checked').textContent = '';
+                document.getElementById('manager-report-signature-compiler').textContent = '';
+                document.getElementById('manager-report-signature-checker').textContent = '';
+                console.log(`[UI Manager] Completed: No approved reports, idle state.`);
+            }
+        };
+
+        // === LOGIN/LOGOUT LOGIC ===
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            console.log('[Login] Started: User attempting to log in.');
+            e.preventDefault();
+            const username = document.getElementById('username').value.toLowerCase();
+            const password = document.getElementById('password').value;
+            
+            if (users[username] && password === '123456') {
+                currentUserRole = username;
+                updateUIBasedOnState();
+                console.log(`[Login] Completed: Login successful. User role set to "${currentUserRole}".`);
+            } else {
+                displayMessage('login-message-box', 'Invalid username or password.', 'error');
+                console.log(`[Login] Completed: Login failed for username "${username}".`);
+            }
+        });
+
+        const logout = () => {
+            console.log('[Logout] Started: User initiating logout.');
+            currentUserRole = 'login';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '123456';
+            showView('login');
+            displayMessage('login-message-box', 'You have been logged out.', 'info');
+            console.log('[Logout] Completed: User logged out successfully.');
+        };
+
+        // === OFFICER FORM LOGIC ===
+        document.getElementById('officer-form').addEventListener('submit', (e) => {
+            console.log('[Officer Submit] Started: Officer submitting form.');
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            reportData.officerResponses = {
+                q1_response: formData.get('q1_response'),
+                q1_comments: formData.get('q1_comments'),
+                q2_response: formData.get('q2_response'),
+                q2_comments: formData.get('q2_comments'),
+            };
+            reportData.companyName = formData.get('company-name');
+            reportData.documentTitle = formData.get('document-title');
+            reportData.compiler = users['officer'].name;
+            reportData.checker = users['supervisor'].name;
+            reportData.signatureCompiler = formData.get('officer-signature');
+            reportData.dateOfCompilation = getFormattedDate();
+
+            reportData.status = 'submitted';
+            reportData.supervisorReasons = {}; // Clear reasons on new submission
+            updateUIBasedOnState();
+            displayMessage('officer-message-box', 'Responses submitted successfully. Waiting for supervisor review.', 'success');
+            console.log(`[Officer Submit] Completed: Report status changed to "${reportData.status}".`);
+        });
+
+        // === SUPERVISOR FORM LOGIC ===
+        // Checks the status of the checkboxes to show/hide the correct button.
+        const checkSupervisorButtons = () => {
+            console.log('[Supervisor Review] Started: Checking supervisor button visibility.');
+            const q1Checked = document.getElementById('sup-q1-check').checked;
+            const q2Checked = document.getElementById('sup-q2-check').checked;
+            const approveBtn = document.getElementById('approve-btn');
+            const declineBtn = document.getElementById('decline-btn');
+            
+            if (q1Checked && q2Checked) {
+                approveBtn.classList.remove('hidden');
+                declineBtn.classList.add('hidden');
+                console.log('[Supervisor Review] Completed: Both responses are satisfactory. "Approve" button is visible.');
+            } else {
+                approveBtn.classList.add('hidden');
+                declineBtn.classList.remove('hidden');
+                console.log('[Supervisor Review] Completed: At least one response is unsatisfactory. "Decline" button is visible.');
+            }
+        };
+
+        // Adds event listeners for the checkboxes to trigger button checks.
+        document.getElementById('sup-q1-check').addEventListener('change', (e) => {
+            console.log('[Supervisor Review] Q1 checkbox changed.');
+            const reasonField = document.getElementById('sup-q1-decline-reason');
+            if (e.target.checked) {
+                reasonField.classList.add('hidden');
+                reasonField.removeAttribute('required');
+            } else {
+                reasonField.classList.remove('hidden');
+                reasonField.setAttribute('required', 'required');
+            }
+            checkSupervisorButtons();
+        });
+
+        document.getElementById('sup-q2-check').addEventListener('change', (e) => {
+            console.log('[Supervisor Review] Q2 checkbox changed.');
+            const reasonField = document.getElementById('sup-q2-decline-reason');
+            if (e.target.checked) {
+                reasonField.classList.add('hidden');
+                reasonField.removeAttribute('required');
+            } else {
+                reasonField.classList.remove('hidden');
+                reasonField.setAttribute('required', 'required');
+            }
+            checkSupervisorButtons();
+        });
+
+        // Declines the report, updates local data, and updates the UI.
+        const declineReport = () => {
+            console.log('[Supervisor Decline] Started: Supervisor declining the report.');
+            const signatureInput = document.getElementById('supervisor-signature');
+            const signature = signatureInput.value.trim();
+            if (!signature) {
+                displayMessage('supervisor-message-box', 'Please provide your signature before declining.', 'error');
+                return;
+            }
+
+            const q1Checked = document.getElementById('sup-q1-check').checked;
+            const q2Checked = document.getElementById('sup-q2-check').checked;
+            
+            const reasons = {};
+            if (!q1Checked) {
+                reasons.q1_decline = document.getElementById('sup-q1-decline-reason').value.trim();
+                if (!reasons.q1_decline) {
+                    displayMessage('supervisor-message-box', 'Please provide a reason for the first declined section.', 'error');
+                    console.error('[Supervisor Decline] Failed: Reason for decline missing.');
+                    return;
+                }
+            } else {
+                reasons.q1_decline = 'Approved';
+            }
+            if (!q2Checked) {
+                reasons.q2_decline = document.getElementById('sup-q2-decline-reason').value.trim();
+                if (!reasons.q2_decline) {
+                    displayMessage('supervisor-message-box', 'Please provide a reason for the second declined section.', 'error');
+                    console.error('[Supervisor Decline] Failed: Reason for decline missing.');
+                    return;
+                }
+            } else {
+                reasons.q2_decline = 'Approved';
+            }
+
+            reportData.dateOfChecking = getFormattedDate();
+            reportData.signatureChecker = signature;
+            reportData.status = 'declined';
+            reportData.supervisorReasons = reasons;
+            updateUIBasedOnState();
+            displayMessage('supervisor-message-box', 'Report declined and sent back to officer.', 'error');
+            console.log(`[Supervisor Decline] Completed: Report status changed to "${reportData.status}".`);
+        };
+
+        // Approves the report, updates local data, and updates the UI.
+        const approveReport = () => {
+            console.log('[Supervisor Approve] Started: Supervisor approving the report.');
+            const signatureInput = document.getElementById('supervisor-signature');
+            const signature = signatureInput.value.trim();
+            if (!signature) {
+                displayMessage('supervisor-message-box', 'Please provide your signature before approving.', 'error');
+                return;
+            }
+
+            reportData.dateOfChecking = getFormattedDate();
+            reportData.signatureChecker = signature;
+            reportData.status = 'approved';
+            reportData.supervisorReasons = { q1_decline: 'Approved', q2_decline: 'Approved' };
+            updateUIBasedOnState();
+            displayMessage('supervisor-message-box', 'Report approved and sent to manager.', 'success');
+            console.log(`[Supervisor Approve] Completed: Report status changed to "${reportData.status}".`);
+        };
+
+        // === DOWNLOAD/PRINT LOGIC ===
+        // Generates a timestamp string for file naming.
+        const getTimestamp = () => {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}_${hours}-${minutes}`;
+        };
+
+        // Downloads the current report data as an XLSX file.
+        const downloadXLSX = () => {
+            console.log('[Download XLSX] Started: User clicked download XLSX button.');
+            if (reportData.status !== 'approved') {
+                displayMessage('download-xlsx-msg', 'Please approve the report first.', 'error');
+                console.warn('[Download XLSX] Canceled: Report not in approved status.');
+                return;
+            }
+            
+            const tableRows = [
+                { item: 1, description: 'Is the project timeline feasible?', compliance: reportData.officerResponses.q1_response || 'N/A', comments: reportData.officerResponses.q1_comments || 'No comments.' },
+                { item: 2, description: 'Are all required documents in order?', compliance: reportData.officerResponses.q2_response || 'N/A', comments: reportData.officerResponses.q2_comments || 'No comments.' },
+            ];
+
+            // Create a single array of arrays to represent the entire sheet
+            const sheetData = [
+                [reportData.companyName],
+                [reportData.documentTitle],
+                [], // Empty row for spacing
+                ['Compiled By:', reportData.compiler, '', ''], // Note the empty strings to push data to next columns
+                ['Date of Compilation:', reportData.dateOfCompilation, '', ''],
+                ['Signature of Compiler:', reportData.signatureCompiler, '', ''],
+                [], // Empty row for spacing
+                ['Checked By:', reportData.checker, '', ''],
+                ['Date of Checking:', reportData.dateOfChecking, '', ''],
+                ['Signature of Checker:', reportData.signatureChecker, '', ''],
+                [], // Empty row for spacing
+                ['Item No.', 'Description', 'Compliance', 'Comments'], // Table header
+                ...tableRows.map(row => [row.item, row.description, row.compliance, row.comments])
+            ];
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(sheetData);
+            
+            // Adjust column widths based on content
+            const wscols = [
+                {wch: 10},
+                {wch: 50},
+                {wch: 15},
+                {wch: 60}
+            ];
+            ws['!cols'] = wscols;
+
+            // Append the worksheet to the workbook
+            XLSX.utils.book_append_sheet(wb, ws, 'Report');
+            
+            // Generate the XLSX file and trigger the download
+            const xlsxBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([xlsxBuffer], { type: 'application/octet-stream' });
+            const fileName = `${reportData.companyName.replace(/\s/g, '_')}_${reportData.documentTitle.replace(/\s/g, '_')}_${getTimestamp()}.xlsx`;
+            saveAs(blob, fileName);
+
+            displayMessage('download-xlsx-msg', `Report downloaded successfully as "${fileName}".`, 'success');
+            console.log(`[Download XLSX] Completed: File downloaded as "${fileName}".`);
+        };
+        
+        // Overrides the print function to set a dynamic document title for PDF.
+        const originalPrint = window.print;
+        window.print = () => {
+            console.log('[Print PDF] Started: User initiating print operation.');
+            const originalTitle = document.title;
+            const fileName = `Corporate_Report_${getTimestamp()}`;
+            document.title = fileName;
+            originalPrint();
+            document.title = originalTitle; // Restore original title
+            console.log(`[Print PDF] Completed: Print dialog opened with title "${fileName}".`);
+        };
+        
+        // === HELPER FUNCTIONS ===
+        // Populates the preview table for the officer and manager views.
+        const populatePreviewTable = (tbodyId, data) => {
+            console.log(`[Table Populate] Started: Populating preview table with ID "${tbodyId}".`);
+            const tbody = document.getElementById(tbodyId);
+            tbody.innerHTML = '';
+            const questions = [
+                { text: 'Is the project timeline feasible?', key: 'q1' },
+                { text: 'Are all required documents in order?', key: 'q2' }
+            ];
+
+            questions.forEach(q => {
+                const row = document.createElement('tr');
+                row.classList.add('border-t', 'border-gray-200');
+                
+                const officerResponses = data.officerResponses || {};
+                const supervisorReasons = data.supervisorReasons || {};
+                
+                let supervisorReasonText = 'N/A';
+                if (data.status === 'submitted') {
+                    supervisorReasonText = 'Waiting for review';
+                } else {
+                    const reason = supervisorReasons[q.key + '_decline'];
+                    if (reason === 'Approved') {
+                        supervisorReasonText = 'Approved';
+                    } else {
+                        supervisorReasonText = `Declined: ${reason}`;
+                    }
+                }
+
+                const reasonColor = supervisorReasonText.includes('Approved') ? 'text-green-600' : 'text-red-600';
+                
+                row.innerHTML = `
+                    <td class="py-3 px-4 text-sm text-gray-800">${q.text}</td>
+                    <td class="py-3 px-4 text-sm font-medium text-gray-700">${officerResponses[q.key + '_response'] || ''}</td>
+                    <td class="py-3 px-4 text-sm text-gray-600">${officerResponses[q.key + '_comments'] || 'No comments.'}</td>
+                    <td class="py-3 px-4 text-sm font-semibold ${reasonColor}">${supervisorReasonText}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            console.log(`[Table Populate] Completed: Preview table updated.`);
+        };
+
+        // Populates the review fields for the supervisor view.
+        const populateSupervisorReview = (responses) => {
+            console.log('[Table Populate] Started: Populating supervisor review fields.');
+            document.getElementById('sup-q1-response').textContent = responses.q1_response || 'N/A';
+            document.getElementById('sup-q1-comments').textContent = responses.q1_comments || 'No comments.';
+            document.getElementById('sup-q2-response').textContent = responses.q2_response || 'N/A';
+            document.getElementById('sup-q2-comments').textContent = responses.q2_comments || 'No comments.';
+            document.getElementById('sup-q1-check').checked = true;
+            document.getElementById('sup-q1-decline-reason').classList.add('hidden');
+            document.getElementById('sup-q2-check').checked = true;
+            document.getElementById('sup-q2-decline-reason').classList.add('hidden');
+            document.getElementById('supervisor-signature').value = reportData.signatureChecker || '';
+            console.log('[Table Populate] Completed: Supervisor review fields populated.');
+        };
+
+        // Populates the supervisor's completed review table.
+        const populateSupervisorCompletedTable = () => {
+            console.log('[Table Populate] Started: Populating supervisor completed review table.');
+            const tbody = document.getElementById('supervisor-completed-body');
+            tbody.innerHTML = '';
+            const questions = [
+                { text: 'Is the project timeline feasible?', key: 'q1' },
+                { text: 'Are all required documents in order?', key: 'q2' }
+            ];
+
+            const officerResponses = reportData.officerResponses || {};
+            const supervisorReasons = reportData.supervisorReasons || {};
+            
+            questions.forEach(q => {
+                const row = document.createElement('tr');
+                row.classList.add('border-t', 'border-gray-200');
+
+                let decisionText;
+                let decisionColor;
+                let decisionStatus;
+
+                // Check the overall status first for clarity and to handle the approved case
+                if (reportData.status === 'approved') {
+                    decisionStatus = 'Approved';
+                    decisionColor = 'text-green-600';
+                    decisionText = `<span class="px-2 py-1 bg-green-200 text-green-800 text-xs font-semibold rounded-full">${decisionStatus}</span>`;
+                } else { // status is 'declined'
+                    const reason = supervisorReasons[q.key + '_decline'];
+                    if (reason === 'Approved') {
+                        decisionStatus = 'Approved';
+                        decisionColor = 'text-green-600';
+                        decisionText = `<span class="px-2 py-1 bg-green-200 text-green-800 text-xs font-semibold rounded-full">${decisionStatus}</span>`;
+                    } else {
+                        decisionStatus = 'Declined';
+                        decisionColor = 'text-red-600';
+                        decisionText = `<span class="px-2 py-1 bg-red-200 text-red-800 text-xs font-semibold rounded-full">${decisionStatus}</span><br class="sm:hidden"><span class="block mt-1 sm:mt-0 text-gray-600 font-normal">Reason: ${reason}</span>`;
+                    }
+                }
+
+                row.innerHTML = `
+                    <td class="py-3 px-4 text-sm text-gray-800">${q.text}</td>
+                    <td class="py-3 px-4 text-sm font-medium text-gray-700">${officerResponses[q.key + '_response'] || ''}</td>
+                    <td class="py-3 px-4 text-sm text-gray-600">${officerResponses[q.key + '_comments'] || 'No comments.'}</td>
+                    <td class="py-3 px-4 text-sm font-semibold ${decisionColor}">
+                        ${decisionText}
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            document.getElementById('supervisor-completed-status').textContent = `The report was ${reportData.status}.`;
+            console.log('[Table Populate] Completed: Supervisor completed review table updated.');
+        };
+        
+        // Populates the table for the manager view
+        const populateManagerTable = (data) => {
+            console.log('[Table Populate] Started: Populating manager report table.');
+            const tbody = document.getElementById('manager-report-body');
+            tbody.innerHTML = '';
+            
+            const tableData = [
+                { item: 1, description: 'Is the project timeline feasible?', compliance: data.officerResponses.q1_response || 'N/A', comments: data.officerResponses.q1_comments || 'No comments.' },
+                { item: 2, description: 'Are all required documents in order?', compliance: data.officerResponses.q2_response || 'N/A', comments: data.officerResponses.q2_comments || 'No comments.' },
+            ];
+
+            tableData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.classList.add('border-t', 'border-gray-200');
+                
+                tr.innerHTML = `
+                    <td class="py-3 px-4 text-sm text-gray-800">${row.item}</td>
+                    <td class="py-3 px-4 text-sm text-gray-800">${row.description}</td>
+                    <td class="py-3 px-4 text-sm font-medium text-gray-700">${row.compliance}</td>
+                    <td class="py-3 px-4 text-sm text-gray-600">${row.comments}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            console.log('[Table Populate] Completed: Manager table updated.');
+        };
+        
+        // Initial call to set the correct view on page load
+        window.onload = function() {
+            updateUIBasedOnState();
+        };
+    </script>
+</body>
+</html>
